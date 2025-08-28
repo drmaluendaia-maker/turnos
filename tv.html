@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sala de Espera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; overflow: hidden; }
+        .call-view {
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .call-view.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="callView" class="call-view fixed inset-0 z-50 flex flex-col items-center justify-center text-white p-8">
+        <p id="callPatientName" class="text-8xl font-black drop-shadow-xl text-center"></p>
+        <p id="callConsultorio" class="text-6xl font-bold mt-4 drop-shadow-lg text-center"></p>
+    </div>
+
+    <div id="mainView" class="flex flex-col min-h-screen">
+        <header class="p-8 text-center border-b border-slate-700">
+            <h1 class="text-5xl md:text-6xl font-black tracking-tight">Sala de Espera</h1>
+        </header>
+        
+        <main id="medicosContainer" class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-8">
+            </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+            const medicosContainer = document.getElementById('medicosContainer');
+            const callView = document.getElementById('callView');
+            const callPatientName = document.getElementById('callPatientName');
+            const callConsultorio = document.getElementById('callConsultorio');
+            
+            let synth;
+
+            const especialidadColors = {};
+            const colorPalette = ['#b91c1c', '#1d4ed8', '#047857', '#b45309', '#581c87', '#9f1239'];
+            let colorIndex = 0;
+
+            function getColorForEspecialidad(especialidad) {
+                if (!especialidadColors[especialidad]) {
+                    especialidadColors[especialidad] = colorPalette[colorIndex % colorPalette.length];
+                    colorIndex++;
+                }
+                return especialidadColors[especialidad];
+            }
+            
+            const playCallSound = () => {
+                if(typeof Tone !== 'undefined') {
+                    if (!synth) {
+                        Tone.start();
+                        synth = new Tone.Synth().toDestination();
+                    }
+                    const now = Tone.now();
+                    synth.triggerAttackRelease("C5", "0.3s", now);
+                    synth.triggerAttackRelease("G5", "0.3s", now + 0.4);
+                }
+            };
+
+            socket.on('update_medicos', (medicos) => {
+                window.medicosData = medicos;
+                renderColumns();
+            });
+
+            socket.on('update_pacientes', (pacientes) => {
+                window.pacientesData = pacientes;
+                renderColumns();
+            });
+            
+            socket.on('update_llamado', (llamado) => {
+                if (llamado) {
+                    playCallSound();
+                    callPatientName.textContent = llamado.nombre;
+                    callConsultorio.textContent = `Consultorio ${llamado.consultorio}`;
+                    const color = getColorForEspecialidad(llamado.especialidad);
+                    callView.style.backgroundColor = color;
+                    callView.classList.add('active');
+                } else {
+                    callView.classList.remove('active');
+                }
+            });
+
+
+            function renderColumns() {
+                if (!window.medicosData) return;
+
+                medicosContainer.innerHTML = '';
+                window.medicosData.forEach(medico => {
+                    const column = document.createElement('div');
+                    column.className = 'flex flex-col border-l border-slate-700 px-8';
+                    const color = getColorForEspecialidad(medico.especialidad);
+
+                    // Paciente siendo atendido
+                    let atendiendoHTML = '<p class="text-center text-slate-500 text-xl mt-4">Libre</p>';
+                    if(medico.atendiendo){
+                        atendiendoHTML = `
+                            <div class="bg-slate-800 rounded-xl shadow-lg p-4 mt-4 border-l-8" style="border-color: ${color};">
+                                <p class="text-2xl font-bold">${medico.atendiendo.nombre}</p>
+                                <p class="text-lg text-slate-400">Atendiendo</p>
+                            </div>
+                        `;
+                    }
+
+                    // Lista de espera
+                    const pacientesEnEspera = (window.pacientesData || []).filter(p => p.medicoId === medico.id && p.status === 'en_espera');
+                    let esperaHTML = '<p class="text-center text-slate-500 mt-6">No hay pacientes en espera.</p>';
+                    if (pacientesEnEspera.length > 0) {
+                        esperaHTML = pacientesEnEspera.map(p => `<p class="text-center text-2xl font-semibold mt-2">${p.nombre}</p>`).join('');
+                    }
+
+                    column.innerHTML = `
+                        <div class="text-center">
+                            <h2 class="text-3xl font-bold" style="color:${color};">${medico.especialidad}</h2>
+                            <p class="text-2xl text-slate-300">${medico.nombre}</p>
+                            <p class="text-xl text-slate-400">Consultorio ${medico.consultorio}</p>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN CONSULTORIO</h3>
+                            ${atendiendoHTML}
+                        </div>
+                        <div class="mt-8 flex-grow">
+                            <h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN ESPERA</h3>
+                            ${esperaHTML}
+                        </div>
+                    `;
+                    medicosContainer.appendChild(column);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
