@@ -1,13 +1,14 @@
 {
-  "name": "sala-de-espera",
+  "name": "sala-de-espera-persistente",
   "version": "1.0.0",
-  "description": "Sistema de turnos para sala de espera.",
+  "description": "Sistema de turnos con base de datos y keep-alive.",
   "main": "servidor.js",
   "scripts": {
     "start": "node servidor.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "pg": "^8.11.3"
   }
 }
