@@ -8,15 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; overflow: hidden; }
-        .call-view {
-            transition: opacity 0.5s ease-in-out;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .call-view.active {
-            opacity: 1;
-            pointer-events: all;
-        }
+        .call-view { transition: opacity 0.5s ease-in-out; opacity: 0; pointer-events: none; }
+        .call-view.active { opacity: 1; pointer-events: all; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -44,9 +37,7 @@
             const callView = document.getElementById('callView');
             const callPatientName = document.getElementById('callPatientName');
             const callConsultorio = document.getElementById('callConsultorio');
-            
             let synth;
-
             const especialidadColors = {};
             const colorPalette = ['#b91c1c', '#1d4ed8', '#047857', '#b45309', '#581c87', '#9f1239'];
             let colorIndex = 0;
@@ -94,52 +85,33 @@
                 }
             });
 
-
             function renderColumns() {
                 if (!window.medicosData) return;
-
                 medicosContainer.innerHTML = '';
                 window.medicosData.forEach(medico => {
                     const column = document.createElement('div');
                     column.className = 'flex flex-col border-l border-slate-700 px-8';
                     const color = getColorForEspecialidad(medico.especialidad);
-
-                    // Paciente siendo atendido
                     let atendiendoHTML = '<p class="text-center text-slate-500 text-xl mt-4">Libre</p>';
                     if(medico.atendiendo){
-                        atendiendoHTML = `
-                            <div class="bg-slate-800 rounded-xl shadow-lg p-4 mt-4 border-l-8" style="border-color: ${color};">
-                                <p class="text-2xl font-bold">${medico.atendiendo.nombre}</p>
-                                <p class="text-lg text-slate-400">Atendiendo</p>
-                            </div>
-                        `;
+                        atendiendoHTML = `<div class="bg-slate-800 rounded-xl shadow-lg p-4 mt-4 border-l-8" style="border-color: ${color};"><p class="text-2xl font-bold">${medico.atendiendo.nombre}</p><p class="text-lg text-slate-400">Atendiendo</p></div>`;
                     }
-
-                    // Lista de espera
                     const pacientesEnEspera = (window.pacientesData || []).filter(p => p.medicoId === medico.id && p.status === 'en_espera');
                     let esperaHTML = '<p class="text-center text-slate-500 mt-6">No hay pacientes en espera.</p>';
                     if (pacientesEnEspera.length > 0) {
                         esperaHTML = pacientesEnEspera.map(p => `<p class="text-center text-2xl font-semibold mt-2">${p.nombre}</p>`).join('');
                     }
-
-                    column.innerHTML = `
-                        <div class="text-center">
-                            <h2 class="text-3xl font-bold" style="color:${color};">${medico.especialidad}</h2>
-                            <p class="text-2xl text-slate-300">${medico.nombre}</p>
-                            <p class="text-xl text-slate-400">Consultorio ${medico.consultorio}</p>
-                        </div>
-                        <div class="mt-4">
-                            <h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN CONSULTORIO</h3>
-                            ${atendiendoHTML}
-                        </div>
-                        <div class="mt-8 flex-grow">
-                            <h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN ESPERA</h3>
-                            ${esperaHTML}
-                        </div>
-                    `;
+                    column.innerHTML = `<div class="text-center"><h2 class="text-3xl font-bold" style="color:${color};">${medico.especialidad}</h2><p class="text-2xl text-slate-300">${medico.nombre}</p><p class="text-xl text-slate-400">Consultorio ${medico.consultorio}</p></div><div class="mt-4"><h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN CONSULTORIO</h3>${atendiendoHTML}</div><div class="mt-8 flex-grow"><h3 class="text-2xl font-bold text-center text-slate-300 mb-2">EN ESPERA</h3>${esperaHTML}</div>`;
                     medicosContainer.appendChild(column);
                 });
             }
+
+            // --- Lógica para mantener el servidor despierto ---
+            const keepAliveInterval = setInterval(() => {
+                if (socket.connected) {
+                    socket.emit('ping');
+                }
+            }, 10 * 60 * 1000);
         });
     </script>
 </body>
